@@ -1,0 +1,361 @@
+### A Pluto.jl notebook ###
+# v0.12.20
+
+using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        el
+    end
+end
+
+# ╔═╡ 14975b70-92bd-11eb-286a-11dc0feac8ad
+begin 
+	using Plots
+	plotly()
+	using PlutoUI
+	using StatsPlots
+	using RDatasets
+	using StatsBase
+	using FreqTables
+	using Distributions
+	using QuadGK
+	using CSV
+	using DataFrames
+	using Dates
+end
+
+# ╔═╡ e24e95be-92bc-11eb-1a86-23c1aa466e3b
+md"#### Question 1"
+
+# ╔═╡ 9ba848e0-92c2-11eb-0322-e1863c559d95
+v = @bind v html"<input type=range min=1 max=5 step=1>"
+
+# ╔═╡ 5c17f400-92bd-11eb-263c-2fe27d69d4b0
+begin
+	q = Normal(0,1)
+	p = TDist(v)
+	plot(x -> pdf(q,x) , -10,10, line=3, label = "Normal(0,1)" )
+	plot!(x -> pdf(p,x) , -10,10, line=3, label = "TDist($v)" , title = "Normal(0,1) and TDist with v = $v ", xlabel = "KL divergence for q ~ Normal(0,1) and p ~ TDist($v) = "*string(floor(quadgk(x -> (pdf(p,x)*log(pdf(p,x)/pdf(q,x))), -10, 10 )[1]*10000)/100) )
+end
+
+# ╔═╡ a2194a22-92be-11eb-2095-afcf4cdd4fb1
+"KL divergence for q ~ Normal(0,1) and p ~ TDist($v) = "*string(floor(quadgk(x -> (pdf(p,x)*log(pdf(p,x)/pdf(q,x))), -10, 10 )[1]*10000)/100)
+
+# ╔═╡ f3cd5ea0-92c4-11eb-230b-b93b9ee98472
+md"#### Question 2"
+
+# ╔═╡ 637f46c2-9467-11eb-29fa-095a06c8b180
+begin
+	conv_arrays = []
+	density_plots = []
+	D_uniform = Uniform(0,1)
+	conv_arr = [pdf(D_uniform, k) for k in -10:0.01:10]
+	for _ in 2:10
+		conv_arr_new = [ sum(conv_arr .* [pdf(D_uniform, x-k) for k in -10:0.01:10] ) for x in -10:0.01:10 ]
+		conv_arr = conv_arr_new ./ size(conv_arr_new)
+		push!(conv_arrays, conv_arr)
+		push!(density_plots, plot(-10:0.01:10, conv_arr, line=2) )
+	end
+end
+
+# ╔═╡ 20741dd2-9474-11eb-0ca0-43351e73ba22
+conv_arrays
+
+# ╔═╡ fb3f4340-946f-11eb-34a4-6d4dac4c4515
+plot_no = @bind plot_no html"<input type=range min=1 max=9 step=1>"
+
+# ╔═╡ ec386842-9564-11eb-3a18-e9627c4f9e9a
+sum(conv_arrays[plot_no])
+
+# ╔═╡ 4964ac70-93aa-11eb-1bc2-df57b2fbd7f9
+plot(density_plots[plot_no])
+
+# ╔═╡ bf19a8f0-9470-11eb-05e0-2b4a05db35b1
+begin
+	KL_divergence = []
+	for n in 2:10
+		p_2 = conv_arrays[n-1]
+		mean_p_2 = sum([k for k in -10:0.01:10] .* p_2)/sum(p_2)
+		std_p_2 = sqrt( sum( ([k for k in -10:0.01:10] .- mean_p_2 ) .^2 .* p_2 ) / (sum(p_2)) )
+		Distribution_2 = Normal( mean_p_2, std_p_2 )
+		q_2 = rand(Distribution_2, size(p_2))
+		push!(KL_divergence, sum([ p_2[i]*log( p_2[i]/q_2[i] ) for i in 1:size(p_2)[1] if p_2[i] > 0 && q_2[i] > 0 ] ))
+	end
+end
+
+# ╔═╡ 565ee230-9560-11eb-105b-6103c5c38bc9
+scatter(2:10, KL_divergence, legend = false)
+
+# ╔═╡ 5815bb20-8bb6-11eb-23f5-65424a6dcfaa
+md"#### Question 3"
+
+# ╔═╡ bbb550f0-8bac-11eb-2762-a19cdbd46d34
+begin
+	
+	f_one =0 
+	f_two = 0
+	f_three = 0
+	f_four = 0
+	f_five = 0
+	
+	for i in 1:1000
+		
+		one = rand(0:1000)
+		two = rand(0: ( (1000-one)<0 ? 0 : (1000-one) ) )
+		three = rand(0: ( (1000-one-two)<0 ? 0 : (1000-one-two) ) )
+		four = rand(0:( (1000-one-two-three)<0 ? 0 : (1000-one-two-three) ))
+		five = (1000-one-two-three-four)<0 ? 0 : (1000-one-two-three-four)
+		
+		dataset = [[1 for _ in 1:one] ; [2 for _ in 1:two] ; [3 for _ in 1:three]; [4 for _ in 1:four]; [5 for _ in 1:five]]
+		
+		dataset_mean = mean(dataset)
+		dataset_median = median(dataset)
+		
+		if dataset_mean < dataset_median
+			
+			if skewness(dataset)>1
+				
+				f_one = one
+				f_two = two
+				f_three = three
+				f_four = four
+				f_five= five
+				
+				break
+			
+			end
+		
+		end
+	
+	end
+	
+	dataset = [[1 for _ in 1:f_one] ; [2 for _ in 1:f_two] ; [3 for _ in 1:f_three]; [4 for _ in 1:f_four]; [5 for _ in 1:f_five]]
+	
+	histogram(dataset)
+	plot!([mean(dataset),mean(dataset)],[0,700],line=3,label="mean",color = "green")
+	plot!([median(dataset),median(dataset)],[0,700],line=3,label="median",color="red")
+	plot!([mode(dataset),mode(dataset)],[0,700],line=3,label="mode",color="orange")
+end
+
+# ╔═╡ 2536e1e0-8bb4-11eb-2f68-95b3b0843f7e
+skewness(dataset)
+
+# ╔═╡ 014ad180-94a4-11eb-0f6a-c5281a8260ea
+mean(dataset)
+
+# ╔═╡ ff849070-94a3-11eb-34df-458eeec824f9
+median(dataset)
+
+# ╔═╡ 560732a0-951b-11eb-15b3-a35f9f526daf
+mode(dataset)
+
+# ╔═╡ 8d8e95a0-8bb7-11eb-2b46-a1169eeff6af
+md"#### Question 4" 
+
+# ╔═╡ 93ec1210-8bb7-11eb-216a-cb65dee3aa22
+begin
+	range = []	
+	for i in 1:10000
+		sample = rand(Uniform(0,1),30)
+		append!( range, maximum(sample) - minimum(sample) )
+	end
+	histogram(range)
+	plot!([mean(range),mean(range)],[0,700],line=3,label="mean",color = "green")
+	plot!([median(range),median(range)],[0,700],line=3,label="median",color="red")
+	plot!([mode(range),mode(range)],[0,700],line=3,label="mode",color="orange")
+end
+
+# ╔═╡ c3f1538e-8bbb-11eb-02eb-8b571df83e0d
+mean(range)
+
+# ╔═╡ c91b3200-8bbb-11eb-2747-cb14bebb75ad
+median(range)
+
+# ╔═╡ ccb8a410-8bbb-11eb-07d2-a38f30b5c6d9
+mode(range)
+
+# ╔═╡ 7f680c32-92c5-11eb-25b7-7311e7aba7af
+md"#### Question 6"
+
+# ╔═╡ 103b8c50-92c6-11eb-3a08-ddd5d220a841
+df_6 = CSV.read("D:\\IIT Madras MS\\Sem 2\\Stats for DS\\Assignments\\Assignment_3\\states.csv",DataFrame)
+
+# ╔═╡ 12bc91e0-92c6-11eb-05b7-13de3fbadc3c
+transform!(df_6, :Date => ByRow(x -> Int(floor(Dates.value(x - df_6[1,:Date])/7)+1) ) => :week )
+
+# ╔═╡ 83ba286e-92ea-11eb-1eb6-5743c9cc0de3
+begin
+	gd_df_6 = groupby(df_6,[:week, :State])
+	stacked_df_6 = combine(gd_df_6, :Confirmed => maximum => :weekly_total_cases)
+end
+
+# ╔═╡ 283cb890-92eb-11eb-1036-973bbe19665c
+unstacked_df_6 = select!(unstack(stacked_df_6, :State, :weekly_total_cases),Not([:"State Unassigned",:"India"] ))
+
+# ╔═╡ 08226a20-945b-11eb-26b4-a1791950ec83
+for col in eachcol(unstacked_df_6)
+    replace!(col, missing => 0)
+end
+
+# ╔═╡ 14241d10-9306-11eb-1bac-d9ce3a185dff
+unstacked_df_6
+
+# ╔═╡ 8f806d80-945d-11eb-1741-29f208808035
+for col in names(unstacked_df_6)[2:end]
+    for i in size(unstacked_df_6[!,:week])[1] :-1 :2
+		unstacked_df_6[i, col] = unstacked_df_6[i, col] - unstacked_df_6[i-1, col] 
+	end
+end
+
+# ╔═╡ 6d578882-945b-11eb-04ee-f56d31c4ac5b
+unstacked_df_6
+
+# ╔═╡ 6b0a2950-92eb-11eb-050c-393d7e34494f
+function covmat(df)
+	nc = ncol(df)
+	t = zeros(nc, nc)
+	for (i, c1) in enumerate(eachcol(df))
+		for (j, c2) in enumerate(eachcol(df))
+			sx, sy = skipmissings(c1, c2)
+			t[i, j] = cov(collect(sx), collect(sy))
+		end
+	end
+	return t
+	end;
+
+# ╔═╡ 0f62c340-92ec-11eb-3022-8b7e91890d7b
+covariance = covmat(unstacked_df_6)
+
+# ╔═╡ 38022ee0-9386-11eb-2aad-75490bfcd716
+heatmap(names(unstacked_df_6),names(unstacked_df_6) , covariance, xrotation=90, xticks=(1:38,names(unstacked_df_6)), yticks=(1:38,names(unstacked_df_6)), aspect_ratio=:equal, xtickfont=font(4),ytickfont=font(4), title="Covariance heatmap")
+
+# ╔═╡ 1ed9f9e0-9384-11eb-3fda-c511103eae92
+function cormat(df)
+   nc = ncol(df)
+   t = zeros(nc, nc)
+   for (i, c1) in enumerate(eachcol(df))
+       for (j, c2) in enumerate(eachcol(df))
+           sx, sy = skipmissings(c1, c2)
+           t[i, j] = cor(collect(sx), collect(sy))
+       end
+   end
+   return t
+   end;
+
+# ╔═╡ 32be23a0-9384-11eb-0646-1f45c5f2db5b
+pearson_cor = cormat(unstacked_df_6)
+
+# ╔═╡ 1a8b4e50-9386-11eb-3577-03fafb44d1f9
+heatmap(names(unstacked_df_6),names(unstacked_df_6) , pearson_cor, xrotation=90, xticks=(1:38,names(unstacked_df_6)), yticks=(1:38,names(unstacked_df_6)), aspect_ratio=:equal, xtickfont=font(4),ytickfont=font(4), title="Pearson’s coefficient of correlation heatmap")
+
+# ╔═╡ 929b75c0-9384-11eb-3935-ff1f0987e1d1
+findpos(arr) = [indexin(arr[i], sort(arr))[1] for i in 1:length(arr)]
+
+# ╔═╡ 57404cd0-9384-11eb-0bcc-f1c5d2aba644
+cor_s(x, y) = cor(findpos(x), findpos(y))
+
+# ╔═╡ 80ad9dc0-9384-11eb-0319-b5b28a6f0b8a
+function cor_s_mat(df)
+   nc = ncol(df)
+   t = zeros(nc, nc)
+   for (i, c1) in enumerate(eachcol(df))
+       for (j, c2) in enumerate(eachcol(df))
+           sx, sy = skipmissings(c1, c2)
+           t[i, j] = cor_s(collect(sx), collect(sy))
+       end
+   end
+   return t
+   end;
+
+# ╔═╡ b0c6b230-9384-11eb-005a-71c9b649e12b
+spearman_cor = cor_s_mat(unstacked_df_6)
+
+# ╔═╡ 43480960-9385-11eb-0266-8f1077728523
+heatmap(names(unstacked_df_6),names(unstacked_df_6) , spearman_cor, xrotation=90, xticks=(1:38,names(unstacked_df_6)), yticks=(1:38,names(unstacked_df_6)), aspect_ratio=:equal, xtickfont=font(4),ytickfont=font(4), title = "Spearman’s coefficient of correlation heatmap")
+
+# ╔═╡ 2feabeb0-938c-11eb-2051-4d9fd59d33ed
+md"#### Question 7"
+
+# ╔═╡ 96ecef50-9465-11eb-1070-8f6b343551cf
+function onesidedtail(x,Distribution_7)
+	needed_percentile = 100 - x
+	percentile_x_point = percentile(Distribution_7, needed_percentile)
+	return percentile_x_point
+end
+
+# ╔═╡ f2260790-9482-11eb-1c0a-bbdf690fa280
+percentile_x_point_normal = onesidedtail(95, Normal(0,1))
+
+# ╔═╡ 00287490-9483-11eb-2c16-2bda456d4cda
+begin
+	plot(-5:0.01:5, pdf(Normal(0,1), -5:0.01:5 ), title= "Normal(0,1)", xlabel= "Pecentile point on x axis is $percentile_x_point_normal")
+	plot!(-5:0.01:percentile_x_point_normal, pdf(Normal(0,1), -5:0.01:percentile_x_point_normal ),fill = (0,0.5))
+	plot!([percentile_x_point_normal,percentile_x_point_normal],[0, pdf(Normal(0,1), percentile_x_point_normal) ] ,line = (2,:orange), legend = false )
+end
+
+# ╔═╡ 7a4e4150-949c-11eb-3343-ad4461b4b9ac
+percentile_x_point_tdist = onesidedtail(95, TDist(10))
+
+# ╔═╡ 9a49a9e2-949c-11eb-3a66-312052b837c3
+begin
+	plot(-5:0.01:5, pdf(TDist(10), -5:0.01:5 ), title= "TDist(10)", xlabel= "Pecentile point on x axis is $percentile_x_point_tdist")
+	plot!(-5:0.01:percentile_x_point_tdist, pdf(TDist(10), -5:0.01:percentile_x_point_tdist ),fill = (0,0.5))
+	plot!([percentile_x_point_tdist,percentile_x_point_tdist],[0, pdf(TDist(10), percentile_x_point_tdist) ] ,line = (2,:orange), legend = false )
+end
+
+# ╔═╡ Cell order:
+# ╠═14975b70-92bd-11eb-286a-11dc0feac8ad
+# ╟─e24e95be-92bc-11eb-1a86-23c1aa466e3b
+# ╠═9ba848e0-92c2-11eb-0322-e1863c559d95
+# ╠═5c17f400-92bd-11eb-263c-2fe27d69d4b0
+# ╠═a2194a22-92be-11eb-2095-afcf4cdd4fb1
+# ╟─f3cd5ea0-92c4-11eb-230b-b93b9ee98472
+# ╠═637f46c2-9467-11eb-29fa-095a06c8b180
+# ╠═20741dd2-9474-11eb-0ca0-43351e73ba22
+# ╠═fb3f4340-946f-11eb-34a4-6d4dac4c4515
+# ╠═ec386842-9564-11eb-3a18-e9627c4f9e9a
+# ╠═4964ac70-93aa-11eb-1bc2-df57b2fbd7f9
+# ╠═bf19a8f0-9470-11eb-05e0-2b4a05db35b1
+# ╠═565ee230-9560-11eb-105b-6103c5c38bc9
+# ╟─5815bb20-8bb6-11eb-23f5-65424a6dcfaa
+# ╠═bbb550f0-8bac-11eb-2762-a19cdbd46d34
+# ╠═2536e1e0-8bb4-11eb-2f68-95b3b0843f7e
+# ╠═014ad180-94a4-11eb-0f6a-c5281a8260ea
+# ╠═ff849070-94a3-11eb-34df-458eeec824f9
+# ╠═560732a0-951b-11eb-15b3-a35f9f526daf
+# ╟─8d8e95a0-8bb7-11eb-2b46-a1169eeff6af
+# ╠═93ec1210-8bb7-11eb-216a-cb65dee3aa22
+# ╠═c3f1538e-8bbb-11eb-02eb-8b571df83e0d
+# ╠═c91b3200-8bbb-11eb-2747-cb14bebb75ad
+# ╠═ccb8a410-8bbb-11eb-07d2-a38f30b5c6d9
+# ╟─7f680c32-92c5-11eb-25b7-7311e7aba7af
+# ╠═103b8c50-92c6-11eb-3a08-ddd5d220a841
+# ╠═12bc91e0-92c6-11eb-05b7-13de3fbadc3c
+# ╠═83ba286e-92ea-11eb-1eb6-5743c9cc0de3
+# ╠═283cb890-92eb-11eb-1036-973bbe19665c
+# ╠═08226a20-945b-11eb-26b4-a1791950ec83
+# ╠═14241d10-9306-11eb-1bac-d9ce3a185dff
+# ╠═8f806d80-945d-11eb-1741-29f208808035
+# ╠═6d578882-945b-11eb-04ee-f56d31c4ac5b
+# ╠═6b0a2950-92eb-11eb-050c-393d7e34494f
+# ╠═0f62c340-92ec-11eb-3022-8b7e91890d7b
+# ╠═38022ee0-9386-11eb-2aad-75490bfcd716
+# ╠═1ed9f9e0-9384-11eb-3fda-c511103eae92
+# ╠═32be23a0-9384-11eb-0646-1f45c5f2db5b
+# ╠═1a8b4e50-9386-11eb-3577-03fafb44d1f9
+# ╠═929b75c0-9384-11eb-3935-ff1f0987e1d1
+# ╠═57404cd0-9384-11eb-0bcc-f1c5d2aba644
+# ╠═80ad9dc0-9384-11eb-0319-b5b28a6f0b8a
+# ╠═b0c6b230-9384-11eb-005a-71c9b649e12b
+# ╠═43480960-9385-11eb-0266-8f1077728523
+# ╟─2feabeb0-938c-11eb-2051-4d9fd59d33ed
+# ╠═96ecef50-9465-11eb-1070-8f6b343551cf
+# ╠═f2260790-9482-11eb-1c0a-bbdf690fa280
+# ╠═00287490-9483-11eb-2c16-2bda456d4cda
+# ╠═7a4e4150-949c-11eb-3343-ad4461b4b9ac
+# ╠═9a49a9e2-949c-11eb-3a66-312052b837c3
